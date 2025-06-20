@@ -107,13 +107,37 @@
 </template>
 
 <script>
-import axios from 'axios';
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  doc
+} from "firebase/firestore";
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCcVdp-V9VFq53_l8IAUsWcwIFK0HjZFH0",
+  authDomain: "todolistweb-b95de.firebaseapp.com",
+  projectId: "todolistweb-b95de",
+  storageBucket: "todolistweb-b95de.firebasestorage.app",
+  messagingSenderId: "806838526057",
+  appId: "1:806838526057:web:d640d5d3e6c542038182f8",
+  measurementId: "G-CV43Q58N5F"
+};
+
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+const todosCollection = collection(db, "tasks");
 
 export default {
   name: 'DashboardView',
   data() {
     return {
-      api: 'http://127.0.0.1:8000/api/tasks',
       tasks: [],
       newTask: { title: '', date: '', completed: false },
       editedTask: { title: '', date: '' },
@@ -122,63 +146,36 @@ export default {
     };
   },
   methods: {
-    fetchTasks() {
-      axios.get(this.api)
-        .then(res => {
-          const rawData = res.data.data || res.data || [];
-          this.tasks = rawData.map(task => ({
-            ...task,
-            id: task.id || task.uuid || task.task_id || Math.random(),
-            completed: task.completed == 1 ? true : false
-          }));
-        })
-        .catch(err => {
-          console.error("Fetch error:", err);
-        });
+    async fetchTasks() {
+      const querySnapshot = await getDocs(todosCollection);
+      this.tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
 
-    addTask() {
+    async addTask() {
       if (!this.newTask.title || !this.newTask.date) {
         this.notifMessage = "Please fill out all fields!";
         return;
       }
-
-      axios.post(this.api, this.newTask)
-        .then(() => {
-          this.fetchTasks();
-          this.newTask = { title: '', date: '', completed: false };
-          this.notifMessage = "Task added successfully!";
-          setTimeout(() => this.notifMessage = '', 3000);
-        })
-        .catch(err => {
-          console.error("Add task error:", err);
-        });
+      await addDoc(todosCollection, this.newTask);
+      this.newTask = { title: '', date: '', completed: false };
+      this.notifMessage = "Task added successfully!";
+      this.fetchTasks();
+      setTimeout(() => this.notifMessage = '', 3000);
     },
 
-    deleteTask(id) {
-      axios.delete(`${this.api}/${id}`)
-        .then(() => {
-          this.fetchTasks();
-          this.notifMessage = "Task deleted!";
-          setTimeout(() => this.notifMessage = '', 3000);
-        })
-        .catch(err => {
-          console.error("Delete task error:", err);
-        });
+    async deleteTask(id) {
+      await deleteDoc(doc(db, "tasks", id));
+      this.notifMessage = "Task deleted!";
+      this.fetchTasks();
+      setTimeout(() => this.notifMessage = '', 3000);
     },
 
-    updateTask(task) {
-      axios.put(`${this.api}/${task.id}`, task)
-        .then(() => {
-          this.fetchTasks();
-          this.notifMessage = "Task updated!";
-          setTimeout(() => this.notifMessage = '', 3000);
-        })
-        .catch(err => {
-          console.error("Update task error:", err);
-        });
+    async updateTask(task) {
+      await updateDoc(doc(db, "tasks", task.id), task);
+      this.notifMessage = "Task updated!";
+      this.fetchTasks();
+      setTimeout(() => this.notifMessage = '', 3000);
     },
-    
 
     editTask(index) {
       this.isEditing = index;
@@ -191,21 +188,17 @@ export default {
     },
 
     toggleComplete(task) {
-  const updatedTask = {
-    ...task,
-    completed: task.completed == 1 ? 0 : 1
-  };
-  this.updateTask(updatedTask);
-}
-
+      const updatedTask = {
+        ...task,
+        completed: task.completed ? 0 : 1
+      };
+      this.updateTask(updatedTask);
+    }
   },
-
   mounted() {
     this.fetchTasks();
   }
 };
-
-
 </script>
 
 <style scoped>
