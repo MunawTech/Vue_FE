@@ -110,7 +110,7 @@
 import {
   getFirestore,
   collection,
-  getDocs,
+  onSnapshot,
   addDoc,
   deleteDoc,
   updateDoc,
@@ -196,7 +196,12 @@ export default {
     }
   },
   mounted() {
-    this.fetchTasks();
+    onSnapshot(todosCollection, (snapshot) => {
+      this.tasks = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    });
   }
 };
 </script>
